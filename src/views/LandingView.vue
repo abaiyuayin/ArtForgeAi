@@ -25,7 +25,7 @@
 
     <section id="hero" class="relative min-h-svh flex items-end overflow-hidden">
       <img
-        src="/artforgeai-hero(2).jpg"
+        src="/artforgeai-hero.jpg"
         alt=""
         class="absolute inset-0 w-full h-full object-cover opacity-55 scale-105 transition-transform duration-[8000ms] ease-out"
         :class="heroLoaded && 'scale-100'"
