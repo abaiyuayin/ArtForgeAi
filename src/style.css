@@ -1,14 +1,35 @@
+/* 引入 Inter 与 JetBrains Mono 字体 */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* 引入 Tailwind CSS 的基础、组件与工具类 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  :root {
+    /* 暗夜主题（默认）：背景、表面、文字、强调色等 CSS 变量 */
+    --af-bg: #0a0a0f;
+    --af-surface: #14141c;
+    --af-surface-hover: #1a1a24;
+    --af-ink: #f0f0f5;
+    --af-muted: #8a8a9e;
+    --af-rule: #1e1e2e;
+    --af-accent: #00d4aa;
+    --af-accent-soft: rgba(0, 212, 170, 0.12);
+    --af-accent2: #7b61ff;
+    --af-danger: #ff4d4d;
+    --af-warning: #ffaa00;
+  }
+
+  /* 保证根元素、body 与应用容器占满视口高度 */
   html, body, #app { height: 100%; }
   body {
+    /* 设置全局字体栈，优先使用 Inter */
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    @apply text-sm text-af-ink bg-af-bg;
+    /* 应用背景色、文字色与字号 */
+    @apply text-sm bg-af-bg text-af-ink;
   }
+  /* 自定义滚动条样式 */
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: theme('colors.af-rule'); border-radius: 3px; }
@@ -16,6 +37,60 @@
 }
 
 @layer components {
-  .theme-light body { @apply bg-gray-50 text-gray-900; }
-  .theme-book body { @apply bg-book-bg text-book-ink; }
+  /* 光亮主题变量覆盖 */
+  .theme-light {
+    --af-bg: #f8f9fa;
+    --af-surface: #ffffff;
+    --af-surface-hover: #f3f4f6;
+    --af-ink: #1a1a2e;
+    --af-muted: #6b7280;
+    --af-rule: #e5e7eb;
+    --af-accent: #0d9e7f;
+    --af-accent-soft: rgba(13, 158, 127, 0.12);
+    --af-accent2: #7b61ff;
+    --af-danger: #ff4d4d;
+    --af-warning: #ffaa00;
+  }
+  /* 书籍主题变量覆盖 */
+  .theme-book {
+    --af-bg: #f4e4bc;
+    --af-surface: #faf3e0;
+    --af-surface-hover: #f0e8d0;
+    --af-ink: #3d3226;
+    --af-muted: #7a6b58;
+    --af-rule: #d8c9a6;
+    --af-accent: #c9a86c;
+    --af-accent-soft: rgba(201, 168, 108, 0.12);
+    --af-accent2: #7b61ff;
+    --af-danger: #ff4d4d;
+    --af-warning: #ffaa00;
+  }
+  /* 护眼主题变量覆盖 */
+  .theme-eye-care {
+    --af-bg: #f0f7e8;
+    --af-surface: #e8f0d8;
+    --af-surface-hover: #dce8c8;
+    --af-ink: #3a4a2e;
+    --af-muted: #6b8a5e;
+    --af-rule: #c8d8b0;
+    --af-accent: #5a8a4a;
+    --af-accent-soft: rgba(90, 138, 74, 0.12);
+    --af-accent2: #7b61ff;
+    --af-danger: #ff4d4d;
+    --af-warning: #ffaa00;
+  }
+  /* 樱花主题变量覆盖 */
+  .theme-pink {
+    --af-bg: #faf5f8;
+    --af-surface: #fff0f5;
+    --af-surface-hover: #f8e6ee;
+    --af-ink: #4a2a3a;
+    --af-muted: #9a7a8a;
+    --af-rule: #f0d8e0;
+    --af-accent: #d47a8a;
+    --af-accent-soft: rgba(212, 122, 138, 0.12);
+    --af-accent2: #7b61ff;
+    --af-danger: #ff4d4d;
+    --af-warning: #ffaa00;
+  }
 }
