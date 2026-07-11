@@ -57,7 +57,7 @@
             开始制作
           </RouterLink>
           <a
-            href="https://github.com"
+            href="https://github.com/abaiyuayin/ArtForgeAi"
             target="_blank"
             class="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-medium text-white border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all no-underline"
           >
@@ -117,7 +117,7 @@
             开始制作
           </RouterLink>
           <a
-            href="https://github.com/3068495230/ArtForgeAi"
+            href="https://github.com/abaiyuayin/ArtForgeAi"
             target="_blank"
             class="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg font-medium text-white border border-white/10 hover:border-white/30 hover:bg-white/5 transition-all no-underline"
           >

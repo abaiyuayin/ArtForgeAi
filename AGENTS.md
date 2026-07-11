@@ -83,6 +83,6 @@ src/
 - `npm run dev`：开发服务器
 - `npm run build`：TypeScript 检查 + Vite 构建
 - `npm run deploy`：部署到 GitHub Pages
-- 部署路径：`https://3068495230.github.io/ArtForgeAi/`
+- 部署路径：`https://abaiyuayin.github.io/ArtForgeAi/`
 - base 路径：`/ArtForgeAi/`
 - SPA 回退：`public/404.html`
