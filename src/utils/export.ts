@@ -432,3 +432,13 @@ export async function downloadExport(
   const blob = await zip.generateAsync({ type: 'blob' })
   saveAs(blob, name + '.zip')
 }
+
+/**
+ * 通过创建临时 <a> 元素触发文件下载。
+ */
+export function downloadUrl(url: string, name: string) {
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+}

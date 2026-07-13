@@ -94,3 +94,30 @@
     --af-warning: #ffaa00;
   }
 }
+
+@layer components {
+  /* 全局按钮与表单样式：从 WorkspaceView.vue 抽取，供各页面组件复用 */
+  .btn-primary { @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-sm font-medium bg-af-accent text-black border border-af-accent hover:brightness-110 transition-all disabled:opacity-60; }
+  .btn-secondary { @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-sm font-medium bg-af-surface-hover text-af-ink border border-af-rule hover:border-af-muted transition-all; }
+  .btn-danger { @apply inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-sm font-medium bg-[#ff4d4d] text-white border border-[#ff4d4d] hover:brightness-110 transition-all; }
+  .btn-sm { @apply px-2.5 py-1 text-xs; }
+  .form-group { @apply mb-3 flex-1 min-w-[120px]; }
+  .form-label { @apply block text-xs font-medium text-af-muted mb-1.5; }
+  .form-input { @apply w-full bg-af-bg border border-af-rule rounded-md py-1.5 px-2.5 text-af-ink text-sm outline-none focus:border-af-accent; }
+  .form-input::placeholder { color: var(--af-muted); opacity: 0.6; }
+  .form-select { @apply w-full bg-af-bg border border-af-rule rounded-md py-1.5 px-2.5 text-af-ink text-sm outline-none focus:border-af-accent cursor-pointer; }
+  .form-textarea { @apply w-full bg-af-bg border border-af-rule rounded-md py-1.5 px-2.5 text-af-ink text-sm outline-none focus:border-af-accent resize-y min-h-[60px]; }
+  .form-textarea::placeholder { color: var(--af-muted); opacity: 0.6; }
+  .form-row { @apply flex gap-2.5 flex-wrap; }
+  .panel-title { @apply text-[13px] font-semibold mb-2.5 text-af-ink flex items-center gap-2; }
+  .preview-box { @apply bg-af-surface border border-af-rule rounded-lg min-h-[280px] flex items-center justify-center text-af-muted text-sm relative overflow-hidden; }
+  .preview-label { @apply absolute top-2 left-2.5 text-[10px] font-semibold uppercase tracking-wider text-af-muted bg-black/70 px-2 py-0.5 rounded pointer-events-none; }
+  .slider-wrap { @apply flex items-center gap-2.5; }
+  .slider-value { @apply w-12 text-right font-mono text-[13px] text-af-ink; }
+  .steps-bar { @apply flex gap-2 mb-3 flex-wrap; }
+  .step-pill { @apply flex items-center gap-2 px-3.5 py-2 rounded-full bg-af-bg border border-af-rule text-af-muted text-[13px] font-medium transition-colors; }
+  .step-pill.active { @apply border-af-accent text-af-accent bg-af-accent-soft; }
+  .step-num { @apply w-[22px] h-[22px] rounded-full bg-af-surface-hover text-af-muted flex items-center justify-center text-[11px] font-bold; }
+  .step-pill.active .step-num { @apply bg-af-accent text-black; }
+  .image-pixelated { image-rendering: pixelated; }
+}

@@ -54,13 +54,20 @@ export async function createThumb(dataUrl: string, w: number, h: number): Promis
   return c.toDataURL('image/png')
 }
 
-/** 向资源库添加一条资源，并返回新资源的 id */
-export async function addAsset(name: string, type: string, dataUrl: string): Promise<number> {
+/** 向资源库添加一条资源，并返回新资源的 id（可传入缩略图，避免视频等无法直接 loadImage 的类型失败） */
+
+export async function addAsset(name: string, type: string, dataUrl: string, thumb?: string): Promise<number> {
+
   const db = await getDb()
-  // 生成 120x120 缩略图
-  const thumb = await createThumb(dataUrl, 120, 120)
-  const record: AssetRecord = { name, type, dataUrl, thumb, created: Date.now() }
+
+  // 未提供缩略图时再生成，视频等类型可外部预生成后传入
+
+  const finalThumb = thumb || await createThumb(dataUrl, 120, 120)
+
+  const record: AssetRecord = { name, type, dataUrl, thumb: finalThumb, created: Date.now() }
+
   return db.add(STORE_NAME, record as any) as Promise<number>
+
 }
 
 /** 保存文件到资源库：图片/gif 保存原图 dataUrl，视频保存第一帧缩略图，返回资源 id */
