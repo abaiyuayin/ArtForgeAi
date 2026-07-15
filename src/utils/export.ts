@@ -15,20 +15,32 @@ export function formatBytes(b: number): string {
 }
 
 /**
- * 根据压缩等级返回导出使用的分辨率缩放比例。
- * 最终导出格式固定为 PNG；压缩通过降低分辨率实现。
- * - none: 不压缩，保持用户设置尺寸
- * - low: 75% 分辨率
- * - medium: 50% 分辨率
- * - high: 25% 分辨率
+ * 检测当前浏览器是否支持 WebP 编码。
  */
-export function compressionQuality(level: 'none' | 'low' | 'medium' | 'high'): { type: string; scale: number; label: string } {
+function detectWebPSupport(): boolean {
+  try {
+    const c = document.createElement('canvas')
+    return c.toDataURL('image/webp').startsWith('data:image/webp')
+  } catch {
+    return false
+  }
+}
+
+const webpSupported = detectWebPSupport()
+
+/**
+ * 根据压缩等级返回导出使用的编码格式、缩放比例与质量。
+ * - none: 不压缩，原始尺寸 PNG
+ * - low/medium/high: 使用 WebP（若浏览器支持）或 JPEG 有损压缩，
+ *   等级越高质量越低、文件越小；同时保留一定缩放以进一步减小体积。
+ */
+export function compressionQuality(level: 'none' | 'low' | 'medium' | 'high'): { type: string; scale: number; quality: number; label: string } {
   switch (level) {
-    case 'none': return { type: 'image/png', scale: 1, label: '无压缩' }
-    case 'low': return { type: 'image/png', scale: 0.75, label: '低压缩' }
-    case 'medium': return { type: 'image/png', scale: 0.5, label: '中压缩' }
-    case 'high': return { type: 'image/png', scale: 0.25, label: '高压缩' }
-    default: return { type: 'image/png', scale: 1, label: '无压缩' }
+    case 'none': return { type: 'image/png', scale: 1, quality: 1, label: '无压缩' }
+    case 'low': return { type: webpSupported ? 'image/webp' : 'image/jpeg', scale: 0.9, quality: 0.85, label: '低压缩' }
+    case 'medium': return { type: webpSupported ? 'image/webp' : 'image/jpeg', scale: 0.75, quality: 0.6, label: '中压缩' }
+    case 'high': return { type: webpSupported ? 'image/webp' : 'image/jpeg', scale: 0.5, quality: 0.4, label: '高压缩' }
+    default: return { type: 'image/png', scale: 1, quality: 1, label: '无压缩' }
   }
 }
 
@@ -89,8 +101,8 @@ function applySharpen(ctx: CanvasRenderingContext2D, w: number, h: number, inten
 }
 
 /**
- * 将一帧图像按压缩等级缩放后输出为 PNG 格式。
- * 压缩通过降低分辨率实现，导出格式始终为 PNG。
+ * 将一帧图像按压缩等级缩放并编码后输出。
+ * 无压缩时导出 PNG 原图；有压缩时使用 WebP / JPEG 有损编码，确保文件体积真正减小。
  * sharpen: 锐化强度 0-100，0 为不锐化。
  */
 export async function resizeExportFrame(
@@ -108,15 +120,19 @@ export async function resizeExportFrame(
   c.width = outW
   c.height = outH
   const ctx = c.getContext('2d')!
+  // 使用非平滑缩放可保持像素画风格，避免插值产生杂色导致 PNG 变大
+  ctx.imageSmoothingEnabled = q.scale === 1 || q.type === 'image/png'
   ctx.drawImage(img, 0, 0, outW, outH)
   // 如果启用锐化，在缩放后应用
   applySharpen(ctx, outW, outH, sharpen)
-  // 导出格式固定为 PNG
-  return c.toDataURL('image/png')
+  // 无压缩用 PNG，否则用压缩格式
+  return q.quality < 1 ? c.toDataURL(q.type, q.quality) : c.toDataURL('image/png')
 }
 
 /**
- * 准备导出帧：按压缩等级缩放后统一输出为 PNG，返回实际尺寸与大小对比。
+ * 准备导出帧：按压缩等级缩放并编码（无压缩用 PNG，压缩用 WebP/JPEG），
+ * 返回处理后的帧以及原始/新尺寸对比。为避免“越压越大”，当单帧压缩后
+ * 体积反而大于原图时，自动回退到原图。
  */
 export async function prepareExportFrames(
   frames: { url: string }[],
@@ -136,8 +152,14 @@ export async function prepareExportFrames(
     const origBlob = dataUrlToBlob(f.url)
     origSize += origBlob.size
     // 缩放、压缩并可选锐化后统计新大小
-    const url = await resizeExportFrame(f.url, w, h, compression, sharpen)
-    newSize += dataUrlToBlob(url).size
+    let url = await resizeExportFrame(f.url, w, h, compression, sharpen)
+    let size = dataUrlToBlob(url).size
+    // 若压缩后反而更大，则回退原图，确保“压缩”不会增加体积
+    if (compression !== 'none' && size > origBlob.size) {
+      url = f.url
+      size = origBlob.size
+    }
+    newSize += size
     out.push({ url, width: outW, height: outH })
   }
   return { frames: out, origSize, newSize }

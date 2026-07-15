@@ -124,7 +124,7 @@
             GitHub
           </a>
         </div>
-        <p class="mt-8 text-xs font-mono tracking-widest text-white/30 uppercase">当前版本 v0.4 · MIT License</p>
+        <p class="mt-8 text-xs font-mono tracking-widest text-white/30 uppercase">当前版本 v0.5 · MIT License</p>
       </div>
     </section>
 

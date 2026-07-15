@@ -10,6 +10,8 @@ import UploadZone from '../components/UploadZone.vue'
 
 import HelpBtn from '../components/HelpBtn.vue'
 
+import FrameEditor from '../components/FrameEditor.vue'
+
 const t = inject<(key: string) => string>('t', (key) => key)
 const gifStepLabels = computed(() => [t('gifStep1'), t('gifStep2'), t('gifStep3')])
 const emit = defineEmits<{
@@ -21,6 +23,7 @@ const emit = defineEmits<{
 
 // 简化版状态/提示/确认：从父组件注入或使用 emit
 function setStatus(msg: string) { emit('status', msg) }
+function toast(text: string, type: any = 'success') { emit('toast', text, type) }
 function loading(open: boolean, text: string = '') { emit('loading', open, text) }
 function openAssetPicker(type: string, callback: (asset: any) => void, keepOpen = false) {
   emit('pick-asset', type, callback, keepOpen)
@@ -52,6 +55,8 @@ const gifCropPreviewCanvas = ref<HTMLCanvasElement | null>(null) // GIF 裁剪�
 const gifAnimCanvas = ref<HTMLCanvasElement | null>(null)
 
 const gifExportPreviewVideo = ref<HTMLVideoElement | null>(null) // GIF 导出视频预览元素引用
+
+const frameEditorRef = ref<InstanceType<typeof FrameEditor> | null>(null) // 帧编辑器组件引用
 
 let gifAnimRaf: number | null = null
 
@@ -676,9 +681,36 @@ async function detectSimilarGifFrames() {
 
 function selectAllGifFrames() { gif.frames.forEach(f => f.selected = true) }
 
+// 隔帧选取：按每隔一帧的规律自动选取所有帧（第0、2、4...帧）
+function selectEveryOtherGifFrame() {
+  gif.frames.forEach((f, i) => { f.selected = (i % 2 === 0) })
+}
+
+// 删除未选帧的二次确认弹框状态
+const showDeleteUnselectedConfirm = ref(false)
+
+// 确认删除：保留已选帧，移除未选帧
+function confirmDeleteUnselected() {
+  gif.frames = gif.frames.filter(f => f.selected)
+  showDeleteUnselectedConfirm.value = false
+  emit('status', t('deleted'))
+}
+
 function deselectAllGifFrames() { gif.frames.forEach(f => f.selected = false) }
 
 function confirmGifExport() {
+
+  const selected = gif.frames.filter(f => f.selected)
+
+  if (!selected.length) {
+
+    toast(t('selectFramesFirst'), 'warning')
+
+    return
+
+  }
+
+  setStatus(`已选择 ${selected.length} / ${gif.frames.length} 帧，准备导出`)
 
   gif.step = 3
 
@@ -704,9 +736,7 @@ function toggleGifPreview() {
 
   if (gif.playing) { gif.playing = false; setStatus(t('paused')); if (gifAnimRaf) { clearTimeout(gifAnimRaf); gifAnimRaf = null }; return }
 
-  const selected = gif.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : gif.frames
+  const frames = gif.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -764,9 +794,7 @@ function toggleGifPreview() {
 
 async function generateGifExportPreview() {
 
-  const selected = gif.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : gif.frames
+  const frames = gif.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -807,9 +835,7 @@ async function generateGifExportPreview() {
 
 async function downloadGifExport() {
 
-  const selected = gif.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : gif.frames
+  const frames = gif.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -844,9 +870,7 @@ async function downloadGifExport() {
 
 async function downloadGifSprite(fmt: 'sprite' | 'sprite-zip' | 'sprite-json') {
 
-  const selected = gif.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : gif.frames
+  const frames = gif.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -992,23 +1016,36 @@ function handleFrameClick(i: number, _source: 'video' | 'gif', e: MouseEvent) {
 }
 
 // 帧复选框点击
-function handleFrameCheckbox(i: number, _source: 'video' | 'gif', e: MouseEvent) {
-  e.stopPropagation()
+// 当前已选帧数量（实时显示，避免用户误以为全选）
+const selectedCount = computed(() => gif.frames.filter(f => f.selected).length)
+
+// 帧复选框点击：用 @click 捕获 MouseEvent 以正确读取 shiftKey
+// @change 事件不含 shiftKey 属性，导致 Shift+点击复选框无法连续选取
+function onFrameCheckboxClick(i: number, e: MouseEvent) {
   const frames = gif.frames
-  if (e.shiftKey && lastFrameClickIndex.value >= 0) {
+  const shift = e.shiftKey
+  if (shift && lastFrameClickIndex.value >= 0) {
+    e.preventDefault() // 阻止默认 toggle，由我们手动设置选中状态
+    const targetState = !frames[i].selected
     const start = Math.min(lastFrameClickIndex.value, i)
     const end = Math.max(lastFrameClickIndex.value, i)
-    const targetState = !frames[i].selected
     for (let idx = start; idx <= end; idx++) frames[idx].selected = targetState
+  } else {
+    // 普通点击：手动切换选中状态（因为 @click.stop 阻止了默认行为）
+    frames[i].selected = !frames[i].selected
   }
   lastFrameClickIndex.value = i
 }
 
-// 帧编辑器占位
-function openFrameEditor(_i: number, _source: 'video' | 'gif' = 'video') {}
+// 打开帧编辑器
+function openFrameEditor(i: number, _source: 'video' | 'gif' = 'video') {
+  frameEditorRef.value?.openFrameEditor(i)
+}
 
-// 重置帧编辑器状态占位（帧编辑器现为独立共享组件）
-function resetFrameEditor() {}</script>
+// 重置帧编辑器状态
+function resetFrameEditor() {
+  frameEditorRef.value?.resetFrameEditor()
+}</script>
 
 <template>
 <div class="space-y-3">
@@ -1177,9 +1214,13 @@ function resetFrameEditor() {}</script>
 
                       <button class="btn-secondary" @click="detectSimilarGifFrames">{{ t('detectSimilar') }}</button>
 
+                      <button class="btn-secondary" @click="selectEveryOtherGifFrame">{{ t('selectEveryOther') }}</button>
+
                       <button class="btn-secondary" @click="selectAllGifFrames">{{ t('selectAll') }}</button>
 
                       <button class="btn-secondary" @click="deselectAllGifFrames">{{ t('deselectAll') }}</button>
+
+                      <button class="btn-secondary" @click="showDeleteUnselectedConfirm = true">{{ t('deleteUnselected') }}</button>
 
                       <div class="flex-1"></div>
 
@@ -1193,9 +1234,14 @@ function resetFrameEditor() {}</script>
 
                       <div class="flex-1 min-w-[260px] space-y-2.5">
 
+                        <div class="flex items-center justify-between text-xs text-af-muted px-1">
+                          <span>{{ t('totalFrames') }}: {{ gif.frames.length }}</span>
+                          <span class="text-af-accent font-medium">{{ t('selectedFrames') }}: {{ selectedCount }}</span>
+                        </div>
+
                         <div class="grid grid-cols-7 gap-2.5">
 
-                          <div v-for="(f,i) in gif.frames" :key="i" class="bg-af-surface border rounded-md overflow-hidden cursor-pointer relative transition-all hover:border-af-accent" :class="f.selected ? 'border-af-accent' : 'border-af-rule'" :style="similarFrameStyle(f.similarGroup)" @click="handleFrameClick(i, 'gif', $event)"><input type="checkbox" v-model="f.selected" class="absolute top-2 left-2 w-5 h-5 z-10 accent-af-accent" @click="handleFrameCheckbox(i, 'gif', $event)"><div v-if="f.similarGroup !== -1" class="absolute top-0 left-0 right-0 h-1.5 z-10" :style="{ background: similarColors[f.similarGroup % similarColors.length] }"></div><img :src="f.url" class="w-full object-contain bg-[#0e0e14]"><div class="px-2 py-1 text-[11px] text-af-muted flex justify-between"><span>#{{ i+1 }}</span><span v-if="f.similarGroup !== -1" class="text-xs font-bold" :style="{ color: similarColors[f.similarGroup % similarColors.length] }">G{{ f.similarGroup }}</span></div></div>
+                          <div v-for="(f,i) in gif.frames" :key="i" class="bg-af-surface border rounded-md overflow-hidden cursor-pointer relative transition-all hover:border-af-accent" :class="f.selected ? 'border-af-accent' : 'border-af-rule'" :style="similarFrameStyle(f.similarGroup)" @click="handleFrameClick(i, 'gif', $event)"><input type="checkbox" :checked="f.selected" class="absolute top-2 left-2 w-7 h-7 z-10 accent-af-accent cursor-pointer" @click.stop="onFrameCheckboxClick(i, $event)"><div v-if="f.similarGroup !== -1" class="absolute top-0 left-0 right-0 h-1.5 z-10" :style="{ background: similarColors[f.similarGroup % similarColors.length] }"></div><img :src="f.url" class="w-full object-contain bg-[#0e0e14]"><div class="px-2 py-1 text-[11px] text-af-muted flex justify-between"><span>#{{ i+1 }}</span><span v-if="f.similarGroup !== -1" class="text-xs font-bold" :style="{ color: similarColors[f.similarGroup % similarColors.length] }">G{{ f.similarGroup }}</span></div></div>
 
                         </div>
 
@@ -1283,6 +1329,21 @@ function resetFrameEditor() {}</script>
 
                 </div>
 
+                <!-- 帧编辑器 -->
+                <FrameEditor ref="frameEditorRef" v-model="gif.frames" @toast="toast" @loading="loading" @status="setStatus" />
+
+                <!-- 删除未选帧二次确认弹框 -->
+                <Teleport to="body">
+                  <div v-if="showDeleteUnselectedConfirm" class="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center" @click.self="showDeleteUnselectedConfirm = false">
+                    <div class="bg-af-surface border border-af-rule rounded-lg p-6 max-w-sm w-[90vw]">
+                      <div class="text-sm text-af-ink mb-4 leading-relaxed">{{ t('deleteUnselectedConfirm') }}</div>
+                      <div class="flex gap-2 justify-end">
+                        <button class="btn-secondary btn-sm" @click="showDeleteUnselectedConfirm = false">{{ t('cancel') }}</button>
+                        <button class="btn-danger btn-sm" @click="confirmDeleteUnselected">{{ t('confirmDelete') }}</button>
+                      </div>
+                    </div>
+                  </div>
+                </Teleport>
 
 
 </template>

@@ -4,7 +4,7 @@
 
     <!-- Header -->
 
-    <!-- 顶部导航栏：左侧显示品牌与当前页面标题，右侧放置语言/主题/API/资源库入口 -->
+    <!-- 顶部导航栏：左侧显示品牌与当前页面标题，中间放置外部链接，右侧放置语言/主题/API/资源库入口 -->
     <header class="h-[52px] flex items-center justify-between px-4 shrink-0 z-50 border-b border-af-rule bg-af-surface">
 
       <div class="flex items-center gap-4 min-w-0">
@@ -21,6 +21,18 @@
           <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
           <span class="font-medium text-af-ink truncate">{{ currentScreenTitle }}</span>
         </div>
+      </div>
+
+      <!-- 导航栏中心：外部链接 -->
+      <div class="hidden md:flex items-center gap-4 absolute left-1/2 -translate-x-1/2">
+        <a href="https://github.com/abaiyuayin/ArtForgeAi" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[13px] text-af-muted hover:text-af-ink transition-colors">
+          <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23a11.49 11.49 0 0 1 3-.405c1.02 0 2.04.135 3 .405 2.28-1.56 3.285-1.23 3.285-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12Z"/></svg>
+          <span>GitHub</span>
+        </a>
+        <a href="https://space.bilibili.com/382838394" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 text-[13px] text-af-muted hover:text-af-ink transition-colors">
+          <svg class="w-[18px] h-[18px]" viewBox="0 0 24 24" fill="currentColor"><path d="M17.813 4.653h.854c1.51.054 2.769.578 3.773 1.574 1.004.995 1.524 2.249 1.56 3.76v7.36c-.036 1.51-.556 2.769-1.56 3.773s-2.262 1.524-3.773 1.56H5.333c-1.51-.036-2.769-.556-3.773-1.56S.036 18.858 0 17.347v-7.36c.036-1.511.556-2.765 1.56-3.76 1.004-.996 2.262-1.52 3.773-1.574h.774l-1.174-1.12a1.234 1.234 0 0 1-.373-.906c0-.356.124-.659.373-.907l.027-.027c.267-.249.573-.373.92-.373.347 0 .653.124.92.373L9.653 4.44c.071.071.134.142.187.213h4.267a.836.836 0 0 1 .16-.213l2.853-2.747c.267-.249.573-.373.92-.373.347 0 .662.151.929.4.267.249.391.551.391.907 0 .355-.124.657-.373.906l-1.174 1.12zM5.333 7.24c-.746.018-1.373.276-1.88.773-.506.498-.769 1.13-.786 1.894v7.52c.017.764.28 1.395.786 1.893.507.498 1.134.756 1.88.773h13.334c.746-.017 1.373-.275 1.88-.773.506-.498.769-1.129.786-1.893V9.907c-.017-.764-.28-1.396-.786-1.894-.507-.497-1.134-.755-1.88-.773H5.333zM8 11.107c.373 0 .68.124.92.373.25.249.373.551.373.907v4c0 .355-.124.657-.373.906-.24.249-.547.373-.92.373s-.68-.124-.92-.373c-.25-.249-.373-.551-.373-.906v-4c0-.356.124-.659.373-.907.24-.249.547-.373.92-.373zm8 0c.373 0 .68.124.92.373.25.249.373.551.373.907v4c0 .355-.124.657-.373.906-.24.249-.547.373-.92.373s-.68-.124-.92-.373c-.25-.249-.373-.551-.373-.906v-4c0-.356.124-.659.373-.907.24-.249.547-.373.92-.373z"/></svg>
+          <span>Bilibili</span>
+        </a>
       </div>
 
       <div class="flex items-center gap-2.5 shrink-0">
@@ -130,7 +142,7 @@
 
         <div class="border-t border-af-rule px-2.5 py-2 flex items-center justify-between">
 
-          <span v-if="!sidebarCollapsed" class="text-[11px] text-af-muted px-2.5">v0.4</span>
+          <span v-if="!sidebarCollapsed" class="text-[11px] text-af-muted px-2.5">v0.5</span>
 
           <button class="p-1 rounded text-af-muted hover:text-af-ink hover:bg-af-surface-hover transition-colors group ml-auto" @click="sidebarCollapsed = !sidebarCollapsed">
 
@@ -319,9 +331,12 @@
 
               </div>
 
-              <VideoToFramesPage v-show="seqTab === 'video'" @status="setStatus" @toast="showToast" @loading="setLoading" @pick-asset="onPickAsset" />
-              <GifToFramesPage v-show="seqTab === 'gif'" @status="setStatus" @toast="showToast" @loading="setLoading" @pick-asset="onPickAsset" />
-              <ImageToFramesPage v-show="seqTab === 'sprite'" @status="setStatus" @pick-asset="onPickAsset" />
+              <!-- 使用 v-if + KeepAlive 替代 v-show，确保同一时刻只挂载一个页面组件，避免隐藏页面内容泄漏 -->
+              <KeepAlive>
+                <VideoToFramesPage v-if="seqTab === 'video'" @status="setStatus" @toast="showToast" @loading="setLoading" @pick-asset="onPickAsset" />
+                <GifToFramesPage v-else-if="seqTab === 'gif'" @status="setStatus" @toast="showToast" @loading="setLoading" @pick-asset="onPickAsset" />
+                <ImageToFramesPage v-else-if="seqTab === 'sprite'" @status="setStatus" @pick-asset="onPickAsset" />
+              </KeepAlive>
             </section>
 
 
@@ -1075,6 +1090,8 @@ const langDict: Record<string, Record<string, string>> = {
 
   allFramesApplied: { zh: '已应用至所有帧', en: 'Applied to all frames', ja: '全フレームに適用', ko: '모든 프레임에 적용됨' },
 
+  noFrameSelected: { zh: '没有选中的帧，已应用至当前帧', en: 'No frames selected, applied to current frame', ja: '選択されたフレームがありません。現在のフレームに適用しました', ko: '선택된 프레임 없음, 현재 프레임에 적용됨' },
+
   uploadRefImage: { zh: '上传参考图', en: 'Upload Reference', ja: '参考画像をアップロード', ko: '참조 이미지 업로드' },
 
   genResult: { zh: '生成结果', en: 'Generated Result', ja: '生成結果', ko: '생성 결과' },
@@ -1171,9 +1188,36 @@ const langDict: Record<string, Record<string, string>> = {
 
   deselectAll: { zh: '取消全选', en: 'Deselect All', ja: '選択解除', ko: '전체 해제' },
 
+  selectEveryOther: { zh: '隔帧选取', en: 'Select Every Other', ja: '一つ飛ばし選択', ko: '하나 건너 선택' },
+
+  deleteUnselected: { zh: '删除未选帧', en: 'Delete Unselected', ja: '未選択削除', ko: '미선택 삭제' },
+
+  deleteUnselectedConfirm: { zh: '确定删除所有未选中的帧？此操作不可撤销。', en: 'Delete all unselected frames? This cannot be undone.', ja: '未選択のフレームをすべて削除しますか？元に戻せません。', ko: '선택되지 않은 프레임을 모두 삭제하시겠습니까? 되돌릴 수 없습니다.' },
+
+  confirmDelete: { zh: '确认删除', en: 'Confirm Delete', ja: '削除確認', ko: '삭제 확인' },
+
+  undoHint: { zh: 'Ctrl+Z 撤销', en: 'Ctrl+Z Undo', ja: 'Ctrl+Z 元に戻す', ko: 'Ctrl+Z 실행 취소' },
+
+  undoDone: { zh: '已撤销上一步', en: 'Undone', ja: '元に戻しました', ko: '실행 취소됨' },
+
+  noUndoHistory: { zh: '没有可撤销的操作', en: 'Nothing to undo', ja: '元に戻す操作はありません', ko: '실행 취소할 작업이 없습니다' },
+
+  selectFramesFirst: { zh: '请先选择要导出的帧', en: 'Please select frames to export first', ja: 'エクスポートするフレームを選択してください', ko: '먼저 낳ㄹ할 프레ーム을 선택하세요' },
+
+  totalFrames: { zh: '总帧数', en: 'Total Frames', ja: '総フレーム数', ko: '총 프레임 수' },
+
+  selectedFrames: { zh: '已选帧', en: 'Selected Frames', ja: '選択済みフレーム', ko: '선택된 프레임' },
+
   frameClickHint: { zh: '点击缩略图编辑；点击复选框选择；Shift+点击连续选择', en: 'Click thumbnail to edit; checkbox to select; Shift+click range select', ja: 'サムネイルクリックで編集；チェックボックスで選択；Shift+クリックで範囲選択', ko: '썸네일 클릭으로 편집; 체크박스로 선택; Shift+클릭 범위 선택' },
 
   previewFps: { zh: '预览 FPS', en: 'Preview FPS', ja: 'プレビューFPS', ko: '미리보기 FPS' },
+
+  frameLabel: { zh: '第', en: 'Frame', ja: 'フレーム', ko: '프레임' },
+
+  firstFrame: { zh: '第一帧', en: 'First Frame', ja: '最初のフレーム', ko: '첫 프레임' },
+  prevFrame: { zh: '上一帧', en: 'Previous Frame', ja: '前のフレーム', ko: '이전 프레임' },
+  nextFrame: { zh: '下一帧', en: 'Next Frame', ja: '次のフレーム', ko: '다음 프레임' },
+  lastFrame: { zh: '最后帧', en: 'Last Frame', ja: '最後のフレーム', ko: '마지막 프레임' },
 
   play: { zh: '播放', en: 'Play', ja: '再生', ko: '재생' },
 
@@ -1468,6 +1512,14 @@ const langDict: Record<string, Record<string, string>> = {
 
   exportPreviewDone: { zh: '导出预览已生成', en: 'Export preview generated', ja: 'エクスポートプレビュー生成', ko: '내보내기 미리보기 생성됨' },
 
+  clear: { zh: '清空', en: 'Clear', ja: 'クリア', ko: '비우기' },
+
+  deleted: { zh: '已删除', en: 'Deleted', ja: '削除済み', ko: '삭제됨' },
+
+  extractFailed: { zh: '提取失败', en: 'Extraction failed', ja: '抽出失敗', ko: '추출 실패' },
+
+  clickGeneratePreview: { zh: '点击"生成预览"查看结果', en: 'Click "Generate Preview" to see results', ja: '「プレビュー生成」をクリックして結果を表示', ko: '"미리보기 생성"을 클릭하여 결과 확인' },
+
   gifInfo: { zh: 'GIF 信息', en: 'GIF Info', ja: 'GIF情報', ko: 'GIF 정보' },
 
   frameCount: { zh: '帧数', en: 'Frames', ja: 'フレーム数', ko: '프레임 수' },
@@ -1512,7 +1564,31 @@ const langDict: Record<string, Record<string, string>> = {
 
   gifStep2: { zh: '处理提取帧', en: 'Process Frames', ja: 'フレーム処理', ko: '프레임 처리' },
 
-  gifStep3: { zh: '导出处理结果', en: 'Export Results', ja: '結果エクスポート', ko: '결과 난볶기' },
+  gifStep3: { zh: '导出处理结果', en: 'Export Results', ja: '結果エクスポート', ko: '결과 내보내기' },
+
+  imageStep1: { zh: '上传·裁剪·提取', en: 'Upload·Crop·Extract', ja: 'アップロード·クロップ·抽出', ko: '업로드·자르기·추출' },
+
+  imageStep2: { zh: '处理提取帧', en: 'Process Frames', ja: 'フレーム処理', ko: '프레임 처리' },
+
+  imageStep3: { zh: '导出处理结果', en: 'Export Results', ja: '結果エクスポート', ko: '결과 내보내기' },
+
+  uploadMode: { zh: '上传方式', en: 'Upload Mode', ja: 'アップロード方式', ko: '업로드 방식' },
+
+  uploadImagesMode: { zh: '多图上传', en: 'Multiple Images', ja: '複数画像', ko: '다중 이미지' },
+
+  uploadSpriteMode: { zh: '精灵图裁剪', en: 'Sprite Sheet Slice', ja: 'スプライト分割', ko: '스프라이트 분할' },
+
+  spriteSliceSettings: { zh: '裁剪设置', en: 'Slice Settings', ja: '分割設定', ko: '분할 설정' },
+
+  sliceCols: { zh: '列数', en: 'Columns', ja: '列数', ko: '열 수' },
+
+  sliceRows: { zh: '行数', en: 'Rows', ja: '行数', ko: '행 수' },
+
+  slicePreview: { zh: '裁剪预览', en: 'Slice Preview', ja: '分割プレビュー', ko: '분할 미리보기' },
+
+  sliceSprite: { zh: '裁剪为帧', en: 'Slice to Frames', ja: 'フレームに分割', ko: '프레임으로 분할' },
+
+  spriteSliceHint: { zh: '上传一张精灵图，按列数和行数裁剪为多张独立帧图', en: 'Upload a sprite sheet, slice into individual frames by columns and rows', ja: 'スプライトシートをアップロードし、列数と行数で個別フレームに分割します', ko: '스프라이트 시트를 업로드하고 열과 행 수로 개별 프레임으로 분할합니다' },
 
   notImplemented: { zh: '未实现（当前为占位/模拟）', en: 'Not implemented (placeholder/simulated)', ja: '未実装（プレースホルダー）', ko: '미구현 (플레이스홀더)' },
 

@@ -8,6 +8,8 @@ import UploadZone from '../components/UploadZone.vue'
 
 import HelpBtn from '../components/HelpBtn.vue'
 
+import FrameEditor from '../components/FrameEditor.vue'
+
 const t = inject<(key: string) => string>('t', (key) => key)
 const videoStepLabels = computed(() => [t('videoStep1'), t('videoStep2'), t('videoStep3')])
 const emit = defineEmits<{
@@ -64,11 +66,20 @@ const videoAnimCanvas = ref<HTMLCanvasElement | null>(null)
 
 const exportPreviewVideo = ref<HTMLVideoElement | null>(null) // 导出结果视频预览元素引用
 
+const frameEditorRef = ref<InstanceType<typeof FrameEditor> | null>(null) // 帧编辑器组件引用
+
 let cropResizing = false
 
 let videoAnimRaf: number | null = null
 
-let videoAnimFrame = 0
+// 当前预览帧索引（响应式，供模板显示帧数与单步导航）
+const videoAnimFrame = ref(0)
+
+// 预览所使用的帧列表（选中帧优先，无选中则用全部帧）
+const previewFrames = computed(() => {
+  const selected = video.frames.filter(f => f.selected)
+  return selected.length ? selected : video.frames
+})
 
 
 
@@ -810,21 +821,32 @@ function selectAllFrames() { video.frames.forEach(f => f.selected = true) }
 
 function deselectAllFrames() { video.frames.forEach(f => f.selected = false) }
 
+// 隔帧选取：按每隔一帧的规律自动选取所有帧（第0、2、4...帧）
+function selectEveryOtherFrame() {
+  video.frames.forEach((f, i) => { f.selected = (i % 2 === 0) })
+}
+
+// 删除未选帧的二次确认弹框状态
+const showDeleteUnselectedConfirm = ref(false)
+
+// 确认删除：保留已选帧，移除未选帧
+function confirmDeleteUnselected() {
+  video.frames = video.frames.filter(f => f.selected)
+  showDeleteUnselectedConfirm.value = false
+  emit('status', t('deleted'))
+}
+
 
 
 function toggleVideoPreview() {
 
   if (video.playing) { stopVideoPreview(); return }
 
-  const selected = video.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : video.frames
-
-  if (!frames.length) return
+  if (!previewFrames.value.length) return
 
   video.playing = true; setStatus(t('playing'))
 
-  videoAnimFrame = 0
+  videoAnimFrame.value = 0
 
   const canvas = videoAnimCanvas.value
 
@@ -840,9 +862,17 @@ function toggleVideoPreview() {
 
     if (!video.playing) return
 
-    const frame = frames[videoAnimFrame % frames.length]
+    // 每次重新读取预览帧列表，确保播放中切换选中状态后立即生效（修复选中/取消后动画不刷新的问题）
+    const frames = previewFrames.value
 
-    videoAnimFrame++
+    if (!frames.length) { stopVideoPreview(); return }
+
+    // 帧数变少时重置索引，避免越界
+    if (videoAnimFrame.value >= frames.length) videoAnimFrame.value = 0
+
+    const frame = frames[videoAnimFrame.value % frames.length]
+
+    videoAnimFrame.value = (videoAnimFrame.value + 1) % frames.length
 
     img.onload = () => {
 
@@ -882,6 +912,64 @@ function stopVideoPreview() {
 
 }
 
+// 绘制单帧到预览画布（用于帧改动后自动刷新与单步导航）
+async function drawSinglePreviewFrame(idx: number) {
+  const frames = previewFrames.value
+  if (!frames.length) return
+  const canvas = videoAnimCanvas.value
+  if (!canvas) return
+  const safeIdx = Math.max(0, Math.min(idx, frames.length - 1))
+  videoAnimFrame.value = safeIdx
+  const img = await loadImage(frames[safeIdx].url)
+  const ctx = canvas.getContext('2d')!
+  canvas.width = img.naturalWidth
+  canvas.height = img.naturalHeight
+  ctx.drawImage(img, 0, 0)
+}
+
+// 单步导航：跳到第一帧
+function previewFirstFrame() {
+  if (video.playing) stopVideoPreview()
+  drawSinglePreviewFrame(0)
+}
+
+// 单步导航：上一帧
+function previewPrevFrame() {
+  if (video.playing) stopVideoPreview()
+  const total = previewFrames.value.length
+  if (!total) return
+  drawSinglePreviewFrame((videoAnimFrame.value - 1 + total) % total)
+}
+
+// 单步导航：下一帧
+function previewNextFrame() {
+  if (video.playing) stopVideoPreview()
+  const total = previewFrames.value.length
+  if (!total) return
+  drawSinglePreviewFrame((videoAnimFrame.value + 1) % total)
+}
+
+// 单步导航：跳到最后帧
+function previewLastFrame() {
+  if (video.playing) stopVideoPreview()
+  drawSinglePreviewFrame(previewFrames.value.length - 1)
+}
+
+// 监听帧列表变化：帧改动或选中状态变化后自动刷新预览画布
+watch(() => [
+  video.frames.length,
+  video.frames.map(f => f.url).join('|'),
+  video.frames.map(f => f.selected ? '1' : '0').join('')
+], () => {
+  if (video.step !== 2) return
+  if (video.playing) return // 播放中由渲染循环自动刷新，无需手动绘制
+  if (!previewFrames.value.length) return
+  // 帧数变少时确保索引不越界
+  const total = previewFrames.value.length
+  if (videoAnimFrame.value >= total) videoAnimFrame.value = total - 1
+  drawSinglePreviewFrame(videoAnimFrame.value)
+})
+
 
 
 // 生成视频导出预览：使用 export.ts 中的通用预览生成
@@ -889,6 +977,18 @@ function stopVideoPreview() {
 // 确认导出：从帧处理界面进入导出结果页并自动生成/播放导出预览
 
 async function confirmVideoExport() {
+
+  const selected = video.frames.filter(f => f.selected)
+
+  if (!selected.length) {
+
+    toast(t('selectFramesFirst'), 'warning')
+
+    return
+
+  }
+
+  setStatus(`已选择 ${selected.length} / ${video.frames.length} 帧，准备导出`)
 
   video.step = 3 // 切换到导出步骤
 
@@ -912,9 +1012,7 @@ async function confirmVideoExport() {
 
 async function generateVideoExportPreview() {
 
-  const selected = video.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : video.frames
+  const frames = video.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -955,9 +1053,7 @@ async function generateVideoExportPreview() {
 
 async function downloadVideoExport() {
 
-  const selected = video.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : video.frames
+  const frames = video.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -992,9 +1088,7 @@ async function downloadVideoExport() {
 
 async function downloadVideoSprite(fmt: 'sprite' | 'sprite-zip' | 'sprite-json') {
 
-  const selected = video.frames.filter(f => f.selected)
-
-  const frames = selected.length ? selected : video.frames
+  const frames = video.frames.filter(f => f.selected)
 
   if (!frames.length) return
 
@@ -1157,24 +1251,36 @@ function handleFrameClick(i: number, _source: 'video' | 'gif', e: MouseEvent) {
   openFrameEditor(i, _source)
 }
 
-// 帧复选框点击：Shift 连续选中
-function handleFrameCheckbox(i: number, _source: 'video' | 'gif', e: MouseEvent) {
-  e.stopPropagation()
+// 当前已选帧数量（实时显示，避免用户误以为全选）
+const selectedCount = computed(() => video.frames.filter(f => f.selected).length)
+
+// 帧复选框点击：用 @click 捕获 MouseEvent 以正确读取 shiftKey
+// @change 事件不含 shiftKey 属性，导致 Shift+点击复选框无法连续选取
+function onFrameCheckboxClick(i: number, e: MouseEvent) {
   const frames = video.frames
-  if (e.shiftKey && lastFrameClickIndex.value >= 0) {
+  const shift = e.shiftKey
+  if (shift && lastFrameClickIndex.value >= 0) {
+    e.preventDefault() // 阻止默认 toggle，由我们手动设置选中状态
+    const targetState = !frames[i].selected
     const start = Math.min(lastFrameClickIndex.value, i)
     const end = Math.max(lastFrameClickIndex.value, i)
-    const targetState = !frames[i].selected
     for (let idx = start; idx <= end; idx++) frames[idx].selected = targetState
+  } else {
+    // 普通点击：手动切换选中状态（因为 @click.stop 阻止了默认行为）
+    frames[i].selected = !frames[i].selected
   }
   lastFrameClickIndex.value = i
 }
 
-// 帧编辑器占位：独立页面中不展示编辑器
-function openFrameEditor(_i: number, _source: 'video' | 'gif' = 'video') {}
+// 打开帧编辑器
+function openFrameEditor(i: number, _source: 'video' | 'gif' = 'video') {
+  frameEditorRef.value?.openFrameEditor(i)
+}
 
-// 重置帧编辑器状态占位（帧编辑器现为独立共享组件）
-function resetFrameEditor() {}</script>
+// 重置帧编辑器状态
+function resetFrameEditor() {
+  frameEditorRef.value?.resetFrameEditor()
+}</script>
 
 <template>
 <div class="space-y-3">
@@ -1326,9 +1432,9 @@ function resetFrameEditor() {}</script>
 
                         <div class="form-row mt-2">
 
-                          <div class="form-group"><label class="form-label">{{ t('rangeStart') }}</label><input v-model.number="video.rangeStart" type="number" min="0" :max="video.duration" step="0.01" class="form-input" @wheel="wheelNumber($event, 'video.rangeStart', 0, video.duration)" @blur="refreshVideoCropPreview" /></div>
+                          <div class="form-group"><label class="form-label">{{ t('rangeStart') }}</label><input v-model.number="video.rangeStart" type="number" min="0" :max="video.duration" step="0.1" class="form-input" @wheel="wheelNumber($event, 'video.rangeStart', 0, video.duration)" @blur="refreshVideoCropPreview" /></div>
 
-                          <div class="form-group"><label class="form-label">{{ t('rangeEnd') }}</label><input v-model.number="video.rangeEnd" type="number" min="0" :max="video.duration" step="0.01" class="form-input" @wheel="wheelNumber($event, 'video.rangeEnd', 0, video.duration)" @blur="refreshVideoCropPreview" /></div>
+                          <div class="form-group"><label class="form-label">{{ t('rangeEnd') }}</label><input v-model.number="video.rangeEnd" type="number" min="0" :max="video.duration" step="0.1" class="form-input" @wheel="wheelNumber($event, 'video.rangeEnd', 0, video.duration)" @blur="refreshVideoCropPreview" /></div>
 
                           <div class="form-group"><label class="form-label">{{ t('selectedDuration') }}</label><input :value="fmtFixed(num(video.rangeEnd) - num(video.rangeStart))+'s'" readonly class="form-input" /></div>
 
@@ -1336,9 +1442,9 @@ function resetFrameEditor() {}</script>
 
                         <div class="form-row mt-2">
 
-                          <div class="form-group"><label class="form-label">{{ t('rangeStart') }} {{ fmtFixed(video.rangeStart) }}s</label><div class="slider-wrap"><input v-model.number="video.rangeStart" type="range" min="0" :max="video.duration" step="0.01" class="flex-1 accent-af-accent h-1" @change="refreshVideoCropPreview"></div></div>
+                          <div class="form-group"><label class="form-label">{{ t('rangeStart') }} {{ fmtFixed(video.rangeStart) }}s</label><div class="slider-wrap"><input v-model.number="video.rangeStart" type="range" min="0" :max="video.duration" step="0.1" class="flex-1 accent-af-accent h-1" @change="refreshVideoCropPreview"></div></div>
 
-                          <div class="form-group"><label class="form-label">{{ t('rangeEnd') }} {{ fmtFixed(video.rangeEnd) }}s</label><div class="slider-wrap"><input v-model.number="video.rangeEnd" type="range" min="0" :max="video.duration" step="0.01" class="flex-1 accent-af-accent h-1" @change="refreshVideoCropPreview"></div></div>
+                          <div class="form-group"><label class="form-label">{{ t('rangeEnd') }} {{ fmtFixed(video.rangeEnd) }}s</label><div class="slider-wrap"><input v-model.number="video.rangeEnd" type="range" min="0" :max="video.duration" step="0.1" class="flex-1 accent-af-accent h-1" @change="refreshVideoCropPreview"></div></div>
 
                         </div>
 
@@ -1358,9 +1464,13 @@ function resetFrameEditor() {}</script>
 
                       <button class="btn-secondary" @click="detectSimilarFrames">{{ t('detectSimilar') }}</button>
 
+                      <button class="btn-secondary" @click="selectEveryOtherFrame">{{ t('selectEveryOther') }}</button>
+
                       <button class="btn-secondary" @click="selectAllFrames">{{ t('selectAll') }}</button>
 
                       <button class="btn-secondary" @click="deselectAllFrames">{{ t('deselectAll') }}</button>
+
+                      <button class="btn-secondary" @click="showDeleteUnselectedConfirm = true">{{ t('deleteUnselected') }}</button>
 
                       <div class="flex-1"></div>
 
@@ -1374,7 +1484,11 @@ function resetFrameEditor() {}</script>
 
                       <div class="flex-1 min-w-[260px] space-y-2.5">
 
-                        <div class="grid grid-cols-7 gap-2.5"><div v-for="(f,i) in video.frames" :key="i" class="bg-af-surface border rounded-md overflow-hidden cursor-pointer relative transition-all hover:border-af-accent" :class="f.selected ? 'border-af-accent' : 'border-af-rule'" :style="similarFrameStyle(f.similarGroup)" @click="handleFrameClick(i, 'video', $event)"><input type="checkbox" v-model="f.selected" class="absolute top-2 left-2 w-5 h-5 z-10 accent-af-accent" @click="handleFrameCheckbox(i, 'video', $event)"><div v-if="f.similarGroup !== -1" class="absolute top-0 left-0 right-0 h-1.5 z-10" :style="{ background: similarColors[f.similarGroup % similarColors.length] }"></div><img :src="f.url" class="w-full object-contain bg-[#0e0e14]"><div class="px-2 py-1 text-[11px] text-af-muted flex justify-between"><span>#{{ i+1 }}</span><span v-if="f.similarGroup !== -1" class="text-xs font-bold" :style="{ color: similarColors[f.similarGroup % similarColors.length] }">G{{ f.similarGroup }}</span></div></div></div>
+                        <div class="flex items-center justify-between text-xs text-af-muted px-1">
+                          <span>{{ t('totalFrames') }}: {{ video.frames.length }}</span>
+                          <span class="text-af-accent font-medium">{{ t('selectedFrames') }}: {{ selectedCount }}</span>
+                        </div>
+                        <div class="grid grid-cols-7 gap-2.5"><div v-for="(f,i) in video.frames" :key="i" class="bg-af-surface border rounded-md overflow-hidden cursor-pointer relative transition-all hover:border-af-accent" :class="f.selected ? 'border-af-accent' : 'border-af-rule'" :style="similarFrameStyle(f.similarGroup)" @click="handleFrameClick(i, 'video', $event)"><input type="checkbox" :checked="f.selected" class="absolute top-2 left-2 w-7 h-7 z-10 accent-af-accent cursor-pointer" @click.stop="onFrameCheckboxClick(i, $event)"><div v-if="f.similarGroup !== -1" class="absolute top-0 left-0 right-0 h-1.5 z-10" :style="{ background: similarColors[f.similarGroup % similarColors.length] }"></div><img :src="f.url" class="w-full object-contain bg-[#0e0e14]"><div class="px-2 py-1 text-[11px] text-af-muted flex justify-between"><span>#{{ i+1 }}</span><span v-if="f.similarGroup !== -1" class="text-xs font-bold" :style="{ color: similarColors[f.similarGroup % similarColors.length] }">G{{ f.similarGroup }}</span></div></div></div>
 
                       </div>
 
@@ -1383,6 +1497,19 @@ function resetFrameEditor() {}</script>
                       <div class="w-80 shrink-0 self-start flex flex-col gap-2.5">
 
                         <div class="bg-af-surface border border-af-rule rounded-lg overflow-hidden relative min-h-[400px]"><canvas ref="videoAnimCanvas" class="max-w-full max-h-full"></canvas></div>
+
+                        <!-- 当前播放帧数显示 -->
+                        <div v-if="previewFrames.length" class="text-center text-sm text-af-muted py-1">
+                          {{ t('frameLabel') }} {{ videoAnimFrame + 1 }} / {{ previewFrames.length }}
+                        </div>
+
+                        <!-- 单帧导航按钮组 -->
+                        <div v-if="previewFrames.length" class="grid grid-cols-4 gap-1.5">
+                          <button class="btn-secondary btn-sm" :title="t('firstFrame')" @click="previewFirstFrame">⏮</button>
+                          <button class="btn-secondary btn-sm" :title="t('prevFrame')" @click="previewPrevFrame">◀</button>
+                          <button class="btn-secondary btn-sm" :title="t('nextFrame')" @click="previewNextFrame">▶</button>
+                          <button class="btn-secondary btn-sm" :title="t('lastFrame')" @click="previewLastFrame">⏭</button>
+                        </div>
 
                         <div class="form-group !mb-0 py-2">
 
@@ -1485,6 +1612,22 @@ function resetFrameEditor() {}</script>
                     </div>
 
                   </div>
+
+                  <!-- 帧编辑器 -->
+                  <FrameEditor ref="frameEditorRef" v-model="video.frames" @toast="toast" @loading="loading" @status="setStatus" />
+
+                  <!-- 删除未选帧二次确认弹框 -->
+                  <Teleport to="body">
+                    <div v-if="showDeleteUnselectedConfirm" class="fixed inset-0 bg-black/60 z-[110] flex items-center justify-center" @click.self="showDeleteUnselectedConfirm = false">
+                      <div class="bg-af-surface border border-af-rule rounded-lg p-6 max-w-sm w-[90vw]">
+                        <div class="text-sm text-af-ink mb-4 leading-relaxed">{{ t('deleteUnselectedConfirm') }}</div>
+                        <div class="flex gap-2 justify-end">
+                          <button class="btn-secondary btn-sm" @click="showDeleteUnselectedConfirm = false">{{ t('cancel') }}</button>
+                          <button class="btn-danger btn-sm" @click="confirmDeleteUnselected">{{ t('confirmDelete') }}</button>
+                        </div>
+                      </div>
+                    </div>
+                  </Teleport>
 </div>
 </template>
 <style scoped>

@@ -13,10 +13,10 @@ describe('export utils', () => {
 
   // 测试 compressionQuality 返回正确的压缩参数
   it('compressionQuality 返回正确的压缩参数', () => {
-    expect(compressionQuality('none')).toEqual({ type: 'image/png', scale: 1, label: '无压缩' })
-    expect(compressionQuality('low')).toEqual({ type: 'image/png', scale: 0.75, label: '低压缩' })
-    expect(compressionQuality('medium')).toEqual({ type: 'image/png', scale: 0.5, label: '中压缩' })
-    expect(compressionQuality('high')).toEqual({ type: 'image/png', scale: 0.25, label: '高压缩' })
+    expect(compressionQuality('none')).toEqual({ type: 'image/png', scale: 1, quality: 1, label: '无压缩' })
+    expect(compressionQuality('low')).toMatchObject({ scale: 0.9, quality: 0.85, label: '低压缩' })
+    expect(compressionQuality('medium')).toMatchObject({ scale: 0.75, quality: 0.6, label: '中压缩' })
+    expect(compressionQuality('high')).toMatchObject({ scale: 0.5, quality: 0.4, label: '高压缩' })
   })
 
   // 测试 dataUrlToBlob 将 dataURL 转换为 Blob
