@@ -24,4 +24,15 @@ dist-ssr
 *.sw?
 
 start.bat
-start.bat - 快捷方式
+start.bat - 快捷方式*
+*.lnk
+
+# 临时验证脚本与临时目录
+tmp/
+verify-gif-decode.mts
+
+# AI agent 工作规范（不进项目仓库）
+AGENTS.md
+
+# 竞赛文档（不进项目仓库）
+TRAE创造力大赛.md
