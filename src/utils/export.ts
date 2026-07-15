@@ -260,6 +260,7 @@ export function framesToGif(
 
 /**
  * 生成 Sprite Sheet PNG 与元数据。
+ * 支持传入归一化选项：归一化后每帧尺寸统一为 canvasW × canvasH，再合成精灵图。
  */
 async function generateSpriteSheet(
   frames: { url: string; width: number; height: number }[],
@@ -282,17 +283,29 @@ async function generateSpriteSheet(
 
 /**
  * 生成 Sprite Sheet JSON 元数据字符串。
+ * 支持传入归一化元数据：归一化时新增 normalized/normalizationMode/normalizationOptions/anchor 字段及每帧 trim/scale/offset/anchor。
  */
 function generateSpriteJson(
   name: string,
   frames: { url: string; width: number; height: number }[],
-  opts: { cols: number; delay: number }
+  opts: { cols: number; delay: number },
+  normalizeMeta?: {
+    mode: string
+    options: Record<string, unknown>
+    referenceHeight?: number
+    frameMetas?: Array<{
+      sourceBounds: { x: number; y: number; w: number; h: number }
+      scale: number
+      canvasOffset: { x: number; y: number }
+      anchor: { x: number; y: number }
+    }>
+  }
 ): string {
   const cols = opts.cols || 4
   const rows = Math.ceil(frames.length / cols)
   const cellW = frames[0]?.width || 64
   const cellH = frames[0]?.height || 64
-  const meta = {
+  const base: Record<string, unknown> = {
     name,
     frameCount: frames.length,
     columns: cols,
@@ -302,24 +315,130 @@ function generateSpriteJson(
     sheetWidth: cols * cellW,
     sheetHeight: rows * cellH,
     delay: opts.delay,
-    frames: frames.map((_, i) => ({
-      index: i,
-      x: (i % cols) * cellW,
-      y: Math.floor(i / cols) * cellH,
-      width: cellW,
-      height: cellH
-    }))
+  }
+  // 归一化时附加元数据（向后兼容：不归一化时不出现这些字段）
+  if (normalizeMeta && normalizeMeta.frameMetas) {
+    base.normalized = true
+    base.normalizationMode = normalizeMeta.mode
+    base.normalizationOptions = normalizeMeta.options
+    base.referenceHeight = normalizeMeta.referenceHeight
+    // 全局锚点取首帧锚点（统一画布下所有帧锚点位置相同）
+    if (normalizeMeta.frameMetas[0]) {
+      base.anchor = normalizeMeta.frameMetas[0].anchor
+    }
+  }
+  const meta = {
+    ...base,
+    frames: frames.map((_, i) => {
+      const fm = normalizeMeta?.frameMetas?.[i]
+      const frameObj: Record<string, unknown> = {
+        index: i,
+        x: (i % cols) * cellW,
+        y: Math.floor(i / cols) * cellH,
+        width: cellW,
+        height: cellH,
+      }
+      // 附加每帧归一化元数据（向后兼容）
+      if (fm) {
+        frameObj.trim = fm.sourceBounds
+        frameObj.scale = fm.scale
+        frameObj.offset = fm.canvasOffset
+        frameObj.anchor = fm.anchor
+      }
+      return frameObj
+    })
   }
   return JSON.stringify(meta, null, 2)
 }
 
 /**
+ * 应用归一化处理：根据 opts.mode 分发到统一画布归一化或基准线缩放。
+ * 返回归一化后的帧 URL 列表 + 元数据（用于增强 JSON）。
+ */
+async function applyNormalization(
+  frames: { url: string }[],
+  normalizeOpts: import('./spriteBounds').AnyNormalizeOptions
+): Promise<{
+  sheetFrames: { url: string; width: number; height: number }[]
+  meta: { mode: string; options: Record<string, unknown>; referenceHeight?: number; frameMetas?: Array<{ sourceBounds: any; scale: number; canvasOffset: any; anchor: any }> }
+}> {
+  const spriteBounds = await import('./spriteBounds')
+  const { urlToImageData, imageDataToDataURL, detectContentBounds } = spriteBounds
+  const imgDataList = await Promise.all(frames.map(f => urlToImageData(f.url)))
+
+  let normalized: import('./spriteBounds').NormalizedFrame[]
+  let mode: string
+  let options: Record<string, unknown>
+  let referenceHeight: number | undefined
+
+  if (normalizeOpts.mode === 'baseline') {
+    // 基准线缩放模式
+    const { normalizeByBaseline } = spriteBounds
+    normalized = normalizeByBaseline(imgDataList, {
+      canvasW: normalizeOpts.canvasW,
+      canvasH: normalizeOpts.canvasH,
+      targetHeight: normalizeOpts.targetHeight,
+      baselineY: normalizeOpts.baselineY,
+    })
+    mode = 'baseline'
+    options = {
+      canvasW: normalizeOpts.canvasW,
+      canvasH: normalizeOpts.canvasH,
+      targetHeight: normalizeOpts.targetHeight,
+      baselineY: normalizeOpts.baselineY,
+    }
+  } else {
+    // 统一画布模式（默认）
+    const { normalizeToUniformCanvas } = spriteBounds
+    normalized = normalizeToUniformCanvas(imgDataList, normalizeOpts)
+    mode = 'uniform-canvas'
+    options = {
+      canvasW: normalizeOpts.canvasW,
+      canvasH: normalizeOpts.canvasH,
+      scaleMode: normalizeOpts.scaleMode,
+      align: normalizeOpts.align,
+      padding: normalizeOpts.padding,
+    }
+    // 计算参考高度
+    if (normalizeOpts.scaleMode === 'max') {
+      const bounds = imgDataList.map(d => detectContentBounds(d))
+      referenceHeight = Math.max(...bounds.map(b => b ? b.h : 1))
+    } else if (normalizeOpts.scaleMode === 'fit') {
+      referenceHeight = normalizeOpts.canvasH - normalizeOpts.padding * 2
+    }
+  }
+
+  const sheetFrames = normalized.map(n => ({
+    url: imageDataToDataURL(n.data),
+    width: normalizeOpts.canvasW,
+    height: normalizeOpts.canvasH,
+  }))
+
+  return {
+    sheetFrames,
+    meta: {
+      mode,
+      options,
+      referenceHeight,
+      frameMetas: normalized.map(n => ({
+        sourceBounds: n.meta.sourceBounds,
+        scale: n.meta.scale,
+        canvasOffset: n.meta.canvasOffset,
+        anchor: n.meta.anchor,
+      })),
+    },
+  }
+}
+
+/**
  * 根据导出格式生成预览 URL 或元素配置。
+ * 支持传入归一化选项：精灵图格式且启用归一化时，按模式（统一画布/基准线缩放）归一化所有帧再合成。
  */
 export async function generateExportPreview(
   format: 'video' | 'gif' | 'zip' | 'sprite' | 'sprite-zip' | 'sprite-json',
   frames: { url: string }[],
-  opts: { w: number; h: number; cols: number; compression: 'none' | 'low' | 'medium' | 'high'; delay: number; sharpen?: number }
+  opts: { w: number; h: number; cols: number; compression: 'none' | 'low' | 'medium' | 'high'; delay: number; sharpen?: number },
+  normalizeOpts?: import('./spriteBounds').AnyNormalizeOptions
 ): Promise<{ type: string; url: string; info?: string }> {
   const sharpen = opts.sharpen ?? 0
   // GIF 导出：不预压缩为 JPEG，保持 PNG 输入让 gif.js 自己量化颜色
@@ -355,8 +474,14 @@ export async function generateExportPreview(
   }
   if (format === 'sprite' || format === 'sprite-zip' || format === 'sprite-json') {
     // 精灵图 / 精灵图 ZIP / 精灵图 JSON：均使用相同 PNG 预览
-    const sheet = await generateSpriteSheet(prepared.frames, { cols: opts.cols })
-    return { type: 'image', url: sheet.url, info: `${prepared.frames.length} 帧, ${formatBytes(dataUrlToBlob(sheet.url).size)}` }
+    let sheetFrames = prepared.frames
+    if (normalizeOpts) {
+      // 启用归一化时：按模式归一化所有帧，再合成精灵图
+      const result = await applyNormalization(prepared.frames, normalizeOpts)
+      sheetFrames = result.sheetFrames
+    }
+    const sheet = await generateSpriteSheet(sheetFrames, { cols: opts.cols })
+    return { type: 'image', url: sheet.url, info: `${sheetFrames.length} 帧${normalizeOpts ? '（已归一化）' : ''}, ${formatBytes(dataUrlToBlob(sheet.url).size)}` }
   }
   // zip 格式预览：拼接所有帧的小图与总大小
   let totalSize = 0
@@ -379,12 +504,14 @@ export async function generateExportPreview(
 
 /**
  * 下载导出结果：根据格式触发下载或保存 ZIP。
+ * 支持传入归一化选项：精灵图格式且启用归一化时，先归一化所有帧，再合成精灵图并生成增强 JSON 元数据。
  */
 export async function downloadExport(
   format: 'video' | 'gif' | 'zip' | 'sprite' | 'sprite-zip' | 'sprite-json',
   frames: { url: string }[],
   opts: { w: number; h: number; cols: number; compression: 'none' | 'low' | 'medium' | 'high'; delay: number; sharpen?: number },
-  name: string
+  name: string,
+  normalizeOpts?: import('./spriteBounds').AnyNormalizeOptions
 ) {
   const sharpen = opts.sharpen ?? 0
   // GIF 导出：不预压缩为 JPEG，保持 PNG 输入让 gif.js 量化颜色
@@ -419,8 +546,17 @@ export async function downloadExport(
     return
   }
   if (format === 'sprite' || format === 'sprite-zip' || format === 'sprite-json') {
-    const sheet = await generateSpriteSheet(prepared.frames, { cols: opts.cols })
-    const json = generateSpriteJson(name, prepared.frames, { cols: opts.cols, delay: opts.delay })
+    let sheetFrames = prepared.frames
+    // 归一化元数据（用于增强 JSON）
+    let normalizeMeta: { mode: string; options: Record<string, unknown>; referenceHeight?: number; frameMetas?: Array<{ sourceBounds: any; scale: number; canvasOffset: any; anchor: any }> } | undefined
+    // 启用归一化时：按模式归一化所有帧，再合成精灵图，并收集每帧元数据
+    if (normalizeOpts) {
+      const result = await applyNormalization(prepared.frames, normalizeOpts)
+      sheetFrames = result.sheetFrames
+      normalizeMeta = result.meta
+    }
+    const sheet = await generateSpriteSheet(sheetFrames, { cols: opts.cols })
+    const json = generateSpriteJson(name, sheetFrames, { cols: opts.cols, delay: opts.delay }, normalizeMeta)
     // 仅下载 JSON 元数据
     if (format === 'sprite-json') {
       const blob = new Blob([json], { type: 'application/json' })

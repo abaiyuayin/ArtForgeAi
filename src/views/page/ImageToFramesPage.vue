@@ -373,6 +373,20 @@ const spriteSheet = reactive({
     preset: 'custom',
     preview: '', sizeEstimate: '',
   },
+
+  // 归一化设置（可选启用）：解决不同角色精灵图大小不一的问题
+  normalize: {
+    enabled: false,              // 是否启用归一化
+    mode: 'uniform' as 'uniform' | 'baseline',  // 归一化模式：uniform=统一画布+trim，baseline=基准线缩放
+    canvasW: 128,                // 统一画布宽
+    canvasH: 128,                // 统一画布高
+    scaleMode: 'max' as 'max' | 'fit' | 'custom',  // 缩放基准
+    customScale: 1,              // scaleMode='custom' 时使用
+    align: 'bottom-center' as 'bottom-center' | 'center' | 'top-center',  // 对齐方式
+    padding: 0,                 // 画布边距
+    baselineY: 120,              // 基准线 Y 坐标（baseline 模式下脚底对齐到此线）
+    targetHeight: 64,            // 目标内容高度（baseline 模式下等比缩放到此高度）
+  },
 })
 
 // 步骤标签
@@ -700,6 +714,31 @@ function applyExportPreset() {
   if (p) { spriteSheet.export.w = p[0]; spriteSheet.export.h = p[1] }
 }
 
+// 构建归一化选项（启用时按模式返回对应结构，未启用返回 undefined）
+function buildNormalizeOpts() {
+  if (!spriteSheet.normalize.enabled) return undefined
+  if (spriteSheet.normalize.mode === 'baseline') {
+    // 基准线缩放模式
+    return {
+      mode: 'baseline' as const,
+      canvasW: spriteSheet.normalize.canvasW,
+      canvasH: spriteSheet.normalize.canvasH,
+      targetHeight: spriteSheet.normalize.targetHeight,
+      baselineY: spriteSheet.normalize.baselineY,
+    }
+  }
+  // 统一画布模式（默认）
+  return {
+    mode: 'uniform' as const,
+    canvasW: spriteSheet.normalize.canvasW,
+    canvasH: spriteSheet.normalize.canvasH,
+    scaleMode: spriteSheet.normalize.scaleMode,
+    customScale: spriteSheet.normalize.customScale,
+    align: spriteSheet.normalize.align,
+    padding: spriteSheet.normalize.padding,
+  }
+}
+
 // 生成导出预览
 async function generateExportPreviewAll() {
   const frames = spriteSheet.frames.filter(f => f.selected)
@@ -709,7 +748,8 @@ async function generateExportPreviewAll() {
     const result = await generateExportPreview(
       spriteSheet.export.format as any,
       frames,
-      { w: spriteSheet.export.w, h: spriteSheet.export.h, cols: spriteSheet.export.cols, compression: spriteSheet.export.compression as any, delay: spriteSheet.export.delay }
+      { w: spriteSheet.export.w, h: spriteSheet.export.h, cols: spriteSheet.export.cols, compression: spriteSheet.export.compression as any, delay: spriteSheet.export.delay },
+      buildNormalizeOpts()
     )
     spriteSheet.export.preview = result.url
     spriteSheet.export.sizeEstimate = result.info || ''
@@ -731,7 +771,8 @@ async function downloadExportAll() {
       spriteSheet.export.format as any,
       frames,
       { w: spriteSheet.export.w, h: spriteSheet.export.h, cols: spriteSheet.export.cols, compression: spriteSheet.export.compression as any, delay: spriteSheet.export.delay },
-      spriteSheet.export.name
+      spriteSheet.export.name,
+      buildNormalizeOpts()
     )
   } catch (e) {
     setStatus('下载失败')
@@ -750,7 +791,8 @@ async function downloadSpriteExport(fmt: 'sprite' | 'sprite-zip' | 'sprite-json'
       fmt,
       frames,
       { w: spriteSheet.export.w, h: spriteSheet.export.h, cols: spriteSheet.export.cols, compression: spriteSheet.export.compression as any, delay: spriteSheet.export.delay },
-      spriteSheet.export.name
+      spriteSheet.export.name,
+      buildNormalizeOpts()
     )
   } catch (e) {
     setStatus('下载失败')
@@ -1041,6 +1083,64 @@ watch(() => [spriteSheet.export.cols, spriteSheet.frames.length], () => {
         </div>
         <div v-if="spriteSheet.export.format === 'gif'" class="form-group"><label class="form-label">{{ t('gifDelay') }}</label><input v-model.number="spriteSheet.export.delay" type="number" min="20" class="form-input" /></div>
         <div class="form-group"><label class="form-label">{{ t('filename') }}</label><input v-model="spriteSheet.export.name" class="form-input" @focus="selectOnFocus($event)" @keydown="handleExportNameKeydown($event)"></div>
+      </div>
+
+      <!-- 归一化选项面板（仅精灵图格式显示）：解决不同角色精灵图大小不一的问题 -->
+      <div v-if="spriteSheet.export.format === 'sprite'" class="mt-3 p-3 border border-af-rule rounded-lg bg-af-surface">
+        <div class="flex items-center gap-2 mb-2">
+          <input type="checkbox" v-model="spriteSheet.normalize.enabled" class="w-4 h-4 accent-af-accent" />
+          <span class="text-sm font-medium text-af-ink">{{ t('normalizeTitle') }}</span>
+          <HelpBtn :text="t('normalizeHelp')" />
+        </div>
+        <template v-if="spriteSheet.normalize.enabled">
+          <!-- 归一化模式选择 -->
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">{{ t('normalizeMode') }}</label>
+              <select v-model="spriteSheet.normalize.mode" class="form-select">
+                <option value="uniform">{{ t('normalizeModeUniform') }}</option>
+                <option value="baseline">{{ t('normalizeModeBaseline') }}</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 统一画布模式参数 -->
+          <template v-if="spriteSheet.normalize.mode === 'uniform'">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">{{ t('normalizeCanvasW') }}</label><input v-model.number="spriteSheet.normalize.canvasW" type="number" min="1" class="form-input" /></div>
+              <div class="form-group"><label class="form-label">{{ t('normalizeCanvasH') }}</label><input v-model.number="spriteSheet.normalize.canvasH" type="number" min="1" class="form-input" /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">{{ t('normalizeScaleMode') }}</label>
+                <select v-model="spriteSheet.normalize.scaleMode" class="form-select">
+                  <option value="max">{{ t('normalizeScaleMax') }}</option>
+                  <option value="fit">{{ t('normalizeScaleFit') }}</option>
+                  <option value="custom">{{ t('normalizeScaleCustom') }}</option>
+                </select>
+              </div>
+              <div v-if="spriteSheet.normalize.scaleMode === 'custom'" class="form-group"><label class="form-label">{{ t('normalizeCustomScale') }}</label><input v-model.number="spriteSheet.normalize.customScale" type="number" min="0.1" step="0.1" class="form-input" /></div>
+              <div class="form-group"><label class="form-label">{{ t('normalizeAlign') }}</label>
+                <select v-model="spriteSheet.normalize.align" class="form-select">
+                  <option value="bottom-center">{{ t('normalizeAlignBottom') }}</option>
+                  <option value="center">{{ t('normalizeAlignCenter') }}</option>
+                  <option value="top-center">{{ t('normalizeAlignTop') }}</option>
+                </select>
+              </div>
+              <div class="form-group"><label class="form-label">{{ t('normalizePadding') }}</label><input v-model.number="spriteSheet.normalize.padding" type="number" min="0" class="form-input" /></div>
+            </div>
+          </template>
+
+          <!-- 基准线缩放模式参数 -->
+          <template v-if="spriteSheet.normalize.mode === 'baseline'">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">{{ t('normalizeCanvasW') }}</label><input v-model.number="spriteSheet.normalize.canvasW" type="number" min="1" class="form-input" /></div>
+              <div class="form-group"><label class="form-label">{{ t('normalizeCanvasH') }}</label><input v-model.number="spriteSheet.normalize.canvasH" type="number" min="1" class="form-input" /></div>
+            </div>
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">{{ t('normalizeTargetHeight') }}</label><input v-model.number="spriteSheet.normalize.targetHeight" type="number" min="1" class="form-input" /></div>
+              <div class="form-group"><label class="form-label">{{ t('normalizeBaselineY') }}</label><input v-model.number="spriteSheet.normalize.baselineY" type="number" min="0" class="form-input" /></div>
+            </div>
+          </template>
+        </template>
       </div>
 
       <div v-if="spriteSheet.export.sizeEstimate" class="text-xs text-af-muted mt-2">{{ t('estSize') }}: {{ spriteSheet.export.sizeEstimate }}</div>

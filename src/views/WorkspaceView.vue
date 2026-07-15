@@ -120,6 +120,13 @@
 
           </SidebarGroup>
 
+          <!-- 精灵图归一化独立页面入口 -->
+          <SidebarGroup v-model:open="groups.normalizer" :title="t('spriteNormalizer')" :collapsed="sidebarCollapsed">
+
+            <SidebarItem :label="t('spriteNormalizerPage')" :active="currentScreen === 'sprite-normalizer'" @click="navigate('sprite-normalizer')" />
+
+          </SidebarGroup>
+
 
 
 
@@ -337,6 +344,13 @@
                 <GifToFramesPage v-else-if="seqTab === 'gif'" @status="setStatus" @toast="showToast" @loading="setLoading" @pick-asset="onPickAsset" />
                 <ImageToFramesPage v-else-if="seqTab === 'sprite'" @status="setStatus" @pick-asset="onPickAsset" />
               </KeepAlive>
+            </section>
+
+
+
+            <!-- 精灵图归一化页面：独立处理已有精灵图，跨角色统一画布尺寸 -->
+            <section v-show="currentScreen === 'sprite-normalizer'" class="flex flex-col flex-1 overflow-auto">
+              <SpriteNormalizerPage @status="setStatus" @toast="showToast" @loading="setLoading" />
             </section>
 
 
@@ -683,6 +697,8 @@ import VideoToFramesPage from './page/VideoToFramesPage.vue'
 import GifToFramesPage from './page/GifToFramesPage.vue'
 
 import ImageToFramesPage from './page/ImageToFramesPage.vue'
+
+import SpriteNormalizerPage from './page/sprite-normalizer/SpriteNormalizerPage.vue'
 
 import ResourceLibraryPage from './page/ResourceLibraryPage.vue'
 
@@ -1313,6 +1329,57 @@ const langDict: Record<string, Record<string, string>> = {
 
   downloadJson: { zh: '下载 JSON 元数据', en: 'Download JSON', ja: 'JSONダウンロード', ko: 'JSON 다운로드' },
 
+  // 精灵图归一化相关翻译
+  normalizeTitle: { zh: '归一化', en: 'Normalize', ja: '正規化', ko: '정규화' },
+  normalizeHelp: { zh: '裁掉透明边缘并统一画布尺寸，解决不同角色精灵图大小不一的问题', en: 'Trim transparent edges and unify canvas size to fix inconsistent sprite sizes across characters', ja: '透明な余白を切り取り、キャンバスサイズを統一してキャラクター間のスプライトサイズ不一致を解決', ko: '투명 여백을 잘라내고 캔버스 크기를 통일하여 캐릭터 간 스프라이트 크기 불일치 해결' },
+  normalizeMode: { zh: '归一化模式', en: 'Mode', ja: 'モード', ko: '모드' },
+  normalizeModeUniform: { zh: '统一画布+trim', en: 'Uniform Canvas + Trim', ja: '統一キャンバス+トリム', ko: '통일 캔버스+트림' },
+  normalizeModeBaseline: { zh: '基准线缩放', en: 'Baseline Scale', ja: 'ベースラインスケール', ko: '베이스라인 스케일' },
+  normalizeCanvasW: { zh: '画布宽', en: 'Canvas W', ja: 'キャンバス幅', ko: '캔버스 너비' },
+  normalizeCanvasH: { zh: '画布高', en: 'Canvas H', ja: 'キャンバス高', ko: '캔버스 높이' },
+  normalizeScaleMode: { zh: '缩放基准', en: 'Scale Mode', ja: 'スケール基準', ko: '스케일 기준' },
+  normalizeScaleMax: { zh: '以最大角色为基准（推荐）', en: 'By largest character (recommended)', ja: '最大キャラ基準（推奨）', ko: '가장 큰 캐릭터 기준（권장）' },
+  normalizeScaleFit: { zh: '填充画布（强制等高）', en: 'Fill canvas (force equal height)', ja: 'キャンバス埋め（強制等高）', ko: '캔버스 채우기（강제 등고）' },
+  normalizeScaleCustom: { zh: '自定义比例', en: 'Custom scale', ja: 'カスタム倍率', ko: '사용자 정의 배율' },
+  normalizeCustomScale: { zh: '缩放比例', en: 'Scale', ja: '倍率', ko: '배율' },
+  normalizeAlign: { zh: '对齐方式', en: 'Alignment', ja: '整列', ko: '정렬' },
+  normalizeAlignBottom: { zh: '底部居中', en: 'Bottom Center', ja: '下中央', ko: '하단 중앙' },
+  normalizeAlignCenter: { zh: '居中', en: 'Center', ja: '中央', ko: '중앙' },
+  normalizeAlignTop: { zh: '顶部居中', en: 'Top Center', ja: '上中央', ko: '상단 중앙' },
+  normalizePadding: { zh: '边距', en: 'Padding', ja: '余白', ko: '여백' },
+  normalizeTargetHeight: { zh: '目标高度', en: 'Target Height', ja: '目標高さ', ko: '목표 높이' },
+  normalizeBaselineY: { zh: '基准线 Y', en: 'Baseline Y', ja: 'ベースライン Y', ko: '베이스라인 Y' },
+
+  // 精灵图归一化独立页面相关翻译
+  spriteNormalizer: { zh: '精灵图归一化', en: 'Sprite Normalizer', ja: 'スプライト正規化', ko: '스프라이트 정규화' },
+  spriteNormalizerPage: { zh: '跨角色统一', en: 'Cross-Character Normalize', ja: 'キャラクター間統一', ko: '캐릭터 간 통일' },
+  normalizerStep1: { zh: '上传·切分', en: 'Upload·Slice', ja: 'アップロード·分割', ko: '업로드·분할' },
+  normalizerStep2: { zh: '选择归一化方式', en: 'Choose Mode', ja: 'モード選択', ko: '모드 선택' },
+  normalizerStep3: { zh: '预览对比', en: 'Preview Compare', ja: 'プレビュー比較', ko: '미리보기 비교' },
+  normalizerStep4: { zh: '导出结果', en: 'Export', ja: 'エクスポート', ko: '내보내기' },
+  normalizerUploadTitle: { zh: '上传精灵图（支持批量多角色）', en: 'Upload Sprite (Batch Multi-Char)', ja: 'スプライトをアップロード（複数キャラ対応）', ko: '스프라이트 업로드（다중 캐릭터）' },
+  normalizerUploadHelp: { zh: '上传一张或多张精灵图，系统按列数切分为独立帧；多张图会作为不同角色批量归一化', en: 'Upload one or more sprite sheets, sliced by columns; multiple sheets are normalized together as different characters', ja: '1枚以上のスプライトをアップロード、列数で分割。複数枚は異なるキャラとして一括正規化', ko: '하나 이상의 스프라이트를 업로드하고 열 수로 분할. 여러 장은 서로 다른 캐릭터로 일괄 정규화' },
+  normalizerModeTitle: { zh: '归一化方式', en: 'Normalize Mode', ja: '正規化モード', ko: '정규화 모드' },
+  normalizerModeAnchor: { zh: '锚点对齐', en: 'Anchor Align', ja: 'アンカー整列', ko: '앵커 정렬' },
+  normalizerRun: { zh: '开始归一化', en: 'Run Normalize', ja: '正規化開始', ko: '정규화 실행' },
+  normalizerPreviewTitle: { zh: '前后对比预览', en: 'Before/After Compare', ja: '前後比較プレビュー', ko: '전후 비교 미리보기' },
+  normalizerCrossCharTitle: { zh: '跨角色并排对比', en: 'Cross-Character Compare', ja: 'キャラ間並列比較', ko: '캐릭터 간 나란히 비교' },
+  normalizerDownloadAll: { zh: '全部打包 ZIP', en: 'Download All (ZIP)', ja: '全てZIPでダウンロード', ko: '전체 ZIP 다운로드' },
+  normalizerAnchorTip: { zh: '点击图像设置锚点（通常是脚底中心），归一化时所有帧锚点对齐到统一画布同一位置', en: 'Click to set anchor (usually foot center); all frames aligned to same position on canvas', ja: 'クリックでアンカー設定（通常は足元中央）。全フレームのアンカーがキャンバスの同じ位置に整列', ko: '클릭으로 앵커 설정 (보통 발 중앙). 모든 프레임의 앵커가 캔버스의 같은 위치에 정렬' },
+  normalizerSelectChar: { zh: '角色', en: 'Character', ja: 'キャラクター', ko: '캐릭터' },
+  normalizerFrame: { zh: '帧', en: 'Frame', ja: 'フレーム', ko: '프레임' },
+  normalizerCols: { zh: '列数', en: 'Columns', ja: '列数', ko: '열 수' },
+  normalizerFrames: { zh: '帧', en: 'frames', ja: 'フレーム', ko: '프레임' },
+  normalizerUploaded: { zh: '已上传并切分', en: 'Uploaded & sliced', ja: 'アップロード・分割完了', ko: '업로드 및 분할 완료' },
+  normalizerUploadFail: { zh: '上传失败', en: 'Upload failed', ja: 'アップロード失敗', ko: '업로드 실패' },
+  normalizerResliced: { zh: '已重新切分', en: 'Resliced', ja: '再分割完了', ko: '재분할 완료' },
+  normalizerProcessing: { zh: '正在归一化...', en: 'Normalizing...', ja: '正規化中...', ko: '정규화 중...' },
+  normalizerDone: { zh: '归一化完成', en: 'Normalize done', ja: '正規化完了', ko: '정규화 완료' },
+  normalizerFail: { zh: '归一化失败', en: 'Normalize failed', ja: '正規化失敗', ko: '정규화 실패' },
+  normalizerDownloaded: { zh: '已下载', en: 'Downloaded', ja: 'ダウンロード完了', ko: '다운로드 완료' },
+  normalizerAnchorSet: { zh: '锚点已设置', en: 'Anchor set', ja: 'アンカー設定完了', ko: '앵커 설정 완료' },
+  remove: { zh: '移除', en: 'Remove', ja: '削除', ko: '제거' },
+
   preview: { zh: '预览', en: 'Preview', ja: 'プレビュー', ko: '미리보기' },
 
   sourceImages: { zh: '源图像', en: 'Source Images', ja: 'ソース画像', ko: '소스 이미지' },
@@ -1678,6 +1745,7 @@ const currentScreenTitle = computed(() => {
     'ai-concept': t('aiWorkshop'),
     'media-process': t('mediaProcess'),
     'sequence-frame': t('seqWorkshop'),
+    'sprite-normalizer': t('spriteNormalizer'),
     'resource-library': t('resourceLibrary'),
   }
   return titles[currentScreen.value] || currentScreen.value
@@ -1781,7 +1849,7 @@ function onConfirmDialogCancel() {
 
 
 
-const groups = reactive({ ai: true, media: true, frame: true })
+const groups = reactive({ ai: true, media: true, frame: true, normalizer: true })
 
 
 
